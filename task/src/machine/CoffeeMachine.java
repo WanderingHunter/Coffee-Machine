@@ -3,119 +3,210 @@ package machine;
 import java.util.Scanner;
 
 public class CoffeeMachine {
-
-    public static int coffeeBeans = 120;
-    public static int water = 400;
-    public static int milk = 540;
-    public static int cups = 9;
-    public static int cash = 550;
-
-    public static void report() {
-        System.out.println();
-        System.out.println("The coffee machine has:");
-        System.out.println(water + " of water");
-        System.out.println(milk + " of milk");
-        System.out.println(coffeeBeans + " of coffee beans");
-        System.out.println(cups + " of disposable cups");
-        System.out.println(cash + " of money");
+    private enum State {
+        READY, BUYING, FILL_ASK_WATER, FILL_ASK_MILK, FILL_ASK_BEANS, FILL_ASK_CUPS, EXIT
     }
 
-    public static void buy(String coffeeType) {
-        switch (coffeeType) {
-            case "1":
-                if ((water >= 250) && (coffeeBeans >= 16) && (cups >= 1)) {
-                    water -= 250;
-                    coffeeBeans -= 16;
-                    cups -= 1;
-                    cash += 4;
-                    System.out.println("I have enough resources, making you a coffee!");
-                } else System.out.println("Can't make a cup of coffee, please restock");
-                break;
-            case "2":
-                if ((water >= 350) && (milk >= 75) && (coffeeBeans >= 20) && (cups >= 1)) {
-                    water -= 350;
-                    coffeeBeans -= 20;
-                    milk -= 75;
-                    cups -= 1;
-                    cash += 7;
-                    System.out.println("I have enough resources, making you a coffee!");
-                } else System.out.println("Can't make a cup of coffee, please restock");
-                break;
-            case "3":
-                if ((water >= 200) && (milk >= 100) && (coffeeBeans >= 12) && (cups >= 1)) {
-                    water -= 200;
-                    coffeeBeans -= 12;
-                    milk -= 100;
-                    cups -= 1;
-                    cash += 6;
-                    System.out.println("I have enough resources, making you a coffee!");
-                } else System.out.println("Can't make a cup of coffee, please restock");
-                break;
-            case "back":
-                startUp();
-                break;
-            default:
-                System.out.println("Can't make a cup of coffee, please restock");
+    private enum CoffeeCup {
+        ESPRESSO(250, 0, 16, 4),
+        LATTE(350, 75, 20, 7),
+        CAPPUCCINO(200, 100, 12, 6);
+
+        final int water, milk, beans, price;
+
+        CoffeeCup(int water, int milk, int beans, int price) {
+            this.water = water;
+            this.milk = milk;
+            this.beans = beans;
+            this.price = price;
         }
     }
 
-    public static void take() {
-        System.out.println("I gave you $" + cash);
-        cash = 0;
+    private State state;
+
+    private int water = 400;
+    private int milk = 540;
+    private int beans = 120;
+    private int cups = 9;
+    private int money = 550;
+
+    public CoffeeMachine() {
+        setReady();
     }
 
-    public static void fill(int fillWater, int fillMilk, int fillCoffeeBeans, int fillCups) {
-        water += fillWater;
-        milk += fillMilk;
-        coffeeBeans += fillCoffeeBeans;
-        cups += fillCups;
+    public boolean isExited() {
+        return state == State.EXIT;
     }
 
-    public static void startUp() {
+    public void process(String command) {
+        switch (state) {
+            case READY:
+                operate(command);
+                break;
+            case BUYING:
+                processBuying(command);
+                break;
+            case FILL_ASK_WATER:
+                water += Integer.parseInt(command);
+                setFillAskMilk();
+                break;
+            case FILL_ASK_MILK:
+                milk += Integer.parseInt(command);
+                setFillAskBeans();
+                break;
+            case FILL_ASK_BEANS:
+                beans += Integer.parseInt(command);
+                setFillAskCups();
+                break;
+            case FILL_ASK_CUPS:
+                cups += Integer.parseInt(command);
+                setReady();
+                break;
+            case EXIT:
+                throw new IllegalStateException("I'm switched off");
+            default:
+                throw new IllegalArgumentException("Unknown state");
+        }
+    }
 
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.println();
-        System.out.println("Write an action (buy, fill, take, exit, remaining):");
-        String action = scanner.nextLine();
-
-        switch (action) {
+    private void operate(String command) {
+        switch (command) {
             case "buy":
-                System.out.println("What do you want to buy? 1- espresso, 2- latte, 3- cappuccino:, or type back to return to the main menu");
-                String coffeeSelection = scanner.next();
-                buy(coffeeSelection);
-                startUp();
+                setBuying();
                 break;
             case "fill":
-                System.out.println("Write how many ml of water you want to add:");
-                int waterFill = scanner.nextInt();
-                System.out.println("Write how many ml of milk you want to add:");
-                int milkFill = scanner.nextInt();
-                System.out.println("Write how many grams of coffee beans you want to add:");
-                int beansFill = scanner.nextInt();
-                System.out.println("Write how many disposable cups you want to add:");
-                int cupsFill = scanner.nextInt();
-                fill(waterFill, milkFill, beansFill, cupsFill);
-                startUp();
+                setFillAskWater();
                 break;
             case "take":
                 take();
-                startUp();
                 break;
             case "remaining":
-                report();
-                startUp();
+                reportRemaining();
                 break;
             case "exit":
-                System.exit(0);
-                break;
+                state = State.EXIT;
+                return;
             default:
-                System.out.println("Please type a valid selection");
-                startUp();
+                throw new IllegalArgumentException("Unknown command: " + command);
         }
     }
 
+    private void processBuying(String command) {
+        CoffeeCup aCup;
+        switch (command) {
+            case "1":
+                aCup = CoffeeCup.ESPRESSO;
+                break;
+            case "2":
+                aCup = CoffeeCup.LATTE;
+                break;
+            case "3":
+                aCup = CoffeeCup.CAPPUCCINO;
+                break;
+            case "back":
+                setReady();
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown coffee type");
+        }
+        if (check(aCup)) {
+            serve(aCup);
+        }
+        setReady();
+    }
+
+    private void reportRemaining() {
+        System.out.format("%nThe coffee machine has:%n" +
+                        "%d of water%n" +
+                        "%d of milk%n" +
+                        "%d of coffee beans%n" +
+                        "%d of disposable cups%n" +
+                        "$%d of money%n",
+                water, milk, beans, cups, money);
+        setReady();
+    }
+
+    private void setReady() {
+        if (state != null) {
+            System.out.println();
+        }
+        System.out.println("Write action (buy, fill, take, remaining, exit):");
+        state = State.READY;
+    }
+
+    private void setBuying() {
+        System.out.println();
+        System.out.println("What do you want to buy? 1 - espresso, 2 - latte, 3 - cappuccino, back - to main menu:");
+        state = State.BUYING;
+    }
+
+    private void serve(CoffeeCup aCup) {
+        System.out.println("I have enough resources, making you a coffee!");
+        water -= aCup.water;
+        milk -= aCup.milk;
+        beans -= aCup.beans;
+        cups -= 1;
+        money += aCup.price;
+    }
+
+    private boolean check(CoffeeCup aCup) {
+        if (water < aCup.water) {
+            System.out.println("Sorry, not enough water!");
+            return false;
+        }
+        if (milk < aCup.milk) {
+            System.out.println("Sorry, not enough milk!");
+            return false;
+        }
+        if (milk < aCup.beans) {
+            System.out.println("Sorry, not enough coffee beans!");
+            return false;
+        }
+        if (cups < 1) {
+            System.out.println("Sorry, not enough disposable cups!");
+            return false;
+        }
+        return true;
+    }
+
+    private void setFillAskWater() {
+        System.out.println();
+        System.out.println("Write how many ml of water do you want to add:");
+        state = State.FILL_ASK_WATER;
+    }
+
+    private void setFillAskMilk() {
+        System.out.println("Write how many ml of milk do you want to add:");
+        state = State.FILL_ASK_MILK;
+    }
+
+    private void setFillAskBeans() {
+        System.out.println("Write how many grams of coffee beans do you want to add:");
+        state = State.FILL_ASK_BEANS;
+    }
+
+    private void setFillAskCups() {
+        System.out.println("Write how many disposable cups of coffee do you want to add:");
+        state = State.FILL_ASK_CUPS;
+    }
+
+    private void take() {
+        System.out.format("I gave you $%d%n", money);
+        money = 0;
+        setReady();
+    }
+
     public static void main(String[] args) {
-        startUp();
+        try {
+            Scanner scanner = new Scanner(System.in);
+            CoffeeMachine cm = new CoffeeMachine();
+            while (!cm.isExited()) {
+                String command = scanner.nextLine();
+                cm.process(command);
+            }
+        } catch (Exception e) {
+            System.out.println("Error : " + e.getClass().getName() + " - " + e.getMessage());
+            // e.printStackTrace();
+        }
     }
 }
