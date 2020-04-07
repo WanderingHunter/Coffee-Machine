@@ -158,7 +158,7 @@ public class CoffeeMachine {
             System.out.println("Sorry, not enough milk!");
             return false;
         }
-        if (milk < aCup.beans) {
+        if (beans < aCup.beans) {
             System.out.println("Sorry, not enough coffee beans!");
             return false;
         }
